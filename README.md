@@ -1,2 +1,2 @@
 # ribbon-robin
-weighted client-side HTTP load balance 
+weighted round robin client-side HTTP load balancing
