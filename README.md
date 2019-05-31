@@ -1,4 +1,4 @@
-# Turdus
+# Turdus ![CircleCI](https://img.shields.io/circleci/build/github/shinux/Turdus.svg?style=popout-square) ![npm](https://img.shields.io/npm/v/turdus.svg?style=flat-square) ![node](https://img.shields.io/node/v/turdus.svg?style=flat-square)
 
 Turdus is a client side HTTP [Round-robin](https://en.wikipedia.org/wiki/Round-robin) and [Weighted round-robin](https://en.wikipedia.org/wiki/Weighted_round_robin) load balancing library.
 
