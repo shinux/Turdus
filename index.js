@@ -3,6 +3,14 @@ const bluebird = require('bluebird');
 const realRequest = bluebird.promisify(require('request'));
 
 
+/**
+ * RawTurdus is base class which accpet String[] type endpoints
+ * and request in simple round robin
+ *
+ * Public interface:
+ *
+ * fn: request()      - do real http request in specific domain by module: request.
+ */
 class RawTurdus {
   constructor(endpoints) {
     this._endpoints = endpoints || [];
@@ -12,7 +20,9 @@ class RawTurdus {
   /**
    * @Private
    *
-   * pick endpoint from ipList then update index.
+   * pick domain from endpoint list then update index.
+   *
+   * @return {String} currentEndpoint - an ip/domain
    */
   pickEndpoint() {
     if (this._index >= this._endpoints.length) {
@@ -23,6 +33,13 @@ class RawTurdus {
     return currentEndpoint;
   }
 
+  /**
+   * execute http request with pointed domain from prepared endpoint list
+   *
+   * @param {Object} options - request options: method, uri, body, json...
+   *                           [https://github.com/request/request]
+   * @return {Promise} resolves to request response object.
+   */
   async request(options) {
     try {
       const server = this.pickEndpoint();
@@ -35,13 +52,24 @@ class RawTurdus {
   }
 }
 
+// function aims to calculate greatest common divisor of two values.
 const gcd = (a, b) => !b ? a : gcd(b, a % b);
 
 
+/**
+ * WeightedTurdus is subclass of RawTurdus
+ * which accpet { server: string, weight: number }[] type endpoints
+ * and request in weighted round robin
+ *
+ * Public interface:
+ *
+ * fn: request()      - do real http request in specific domain by module: request.
+ */
 class WeightedTurdus extends RawTurdus {
   constructor(endpoints) {
     super(endpoints);
-    if (this._endpoints.every((endpoint) => !endpoint.weight || endpoint.weight === 0)) {
+    if (this._endpoints.lenght < 0
+      || this._endpoints.every((endpoint) => !endpoint.weight || endpoint.weight === 0)) {
       this._endpoints = this._endpoints.map((endpoint) => endpoint.server);
       this.raw = true;
     } else {
@@ -50,6 +78,12 @@ class WeightedTurdus extends RawTurdus {
     }
   }
 
+  /**
+   * calculate greatest common diviosr of more than two values.
+   *
+   * @param {Array} numbers - array of numbers.
+   * @return {Number} gcd number of numbers.
+   */
   static calculateGCD(numbers) {
     let currentGCD = numbers.pop();
     numbers.forEach((num) => {
@@ -61,6 +95,8 @@ class WeightedTurdus extends RawTurdus {
   /**
    * @private
    *
+   * revert all enpoints' weight to their origin weight.
+   * prepare for next round calling.
    */
   restoreCurrentWeight() {
     this._endpoints = this._endpoints.map((server) => {
@@ -97,6 +133,7 @@ class WeightedTurdus extends RawTurdus {
 }
 
 
+
 module.exports = function Turdus(endpoints) {
   const wrongEndpointsError = new Error('endpoints structure should be string[] or {server: string, weight: number}[]');
   if (!_.isArray(endpoints) || !endpoints.length) {
@@ -109,61 +146,3 @@ module.exports = function Turdus(endpoints) {
   }
   throw wrongEndpointsError;
 };
-
-
-// async function main() {
-//   //let a = new Turdus([ '127.0.0.1', '127.0.0.2', '127.0.0.3' ]);
-//   //await a.commonHttpRequest();
-//   //await a.commonHttpRequest();
-//   //await a.commonHttpRequest();
-//   //await a.commonHttpRequest();
-//   //await a.commonHttpRequest();
-//
-//
-//   let b = new WeightedTurdus([
-//     { server: '127.0.0.1',
-//       weight: 10,
-//     },
-//     { server: '127.0.0.2',
-//       weight: 5,
-//     },
-//     { server: '127.0.0.3',
-//       weight: 7,
-//     },
-//   ]);
-//
-//   console.log(b);
-//   console.log(b._endpoints);
-//   console.log(WeightedTurdus.calculateGCD([ 36, 24 ]));
-//   console.log(WeightedTurdus.calculateGCD([ 40, 10, 90 ]));
-//   b.request({ uri: '/hahahahaa',  method: 'GET' })
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//   b.request({ uri: '/hahahahah',  method: 'GET' });
-//
-//   const result = await realRequest({
-//     method: 'GET',
-//     uri: 'https://pigeon-staging.mokahr.com/',
-//   })
-//   console.log(result.body, result.statusCode);
-// }
-//
-// main();
