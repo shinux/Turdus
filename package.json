@@ -1,0 +1,40 @@
+{
+  "name": "turdus",
+  "version": "0.0.1",
+  "description": "weighted round robin client-side HTTP load balancing",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shinux/Turdus.git"
+  },
+  "keywords": [
+    "round-robin",
+    "load-balancing",
+    "ribbon"
+  ],
+  "author": "Sinux",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/shinux/Turdus/issues"
+  },
+  "homepage": "https://github.com/shinux/Turdus#readme",
+  "dependencies": {
+    "bluebird": "3.5.5",
+    "request": "2.88.0"
+  },
+  "devDependencies": {
+    "eslint": "4.14.0",
+    "eslint-codeframe-formatter": "1.0.2",
+    "eslint-plugin-import": "2.8.0",
+    "eslint-plugin-mocha-no-only": "0.0.5",
+    "eslint-plugin-unicorn": "3.0.1",
+    "mocha": "6.1.4",
+    "nock": "10.0.6"
+  },
+  "engines": {
+     "node": ">=8.9.0"
+   }
+}
