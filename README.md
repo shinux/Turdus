@@ -10,7 +10,7 @@ It provides following features:
 
 ## Principle
 
-For simple Round-robin is basically loop in array.
+For simple Round-robin, it is basically array loop.
 
 For weighted round robin algorithm:
 
@@ -38,16 +38,16 @@ or subscribe event by eureka client and fetchRegistry from [Eureka](https://gith
 const Turdus = require('turdus');
 const trudus = Turdus(['127.0.0.1', '127.0.0.2', '127.0.0.3']);
 
-function touchServer() {
+async function touchServer() {
   await turdus.request({
     method: 'GET',
     uri: '/cat-books',
   });
 }
 
-touchServer();
-touchServer();
-touchServer();
+await touchServer();
+await touchServer();
+await touchServer();
 // ...
 
 // will touch known resources one by one.
@@ -72,16 +72,16 @@ const turdus = Turdus([
   { server: '127.0.0.3', weight: 4 },
 ]);
 
-function touchServer() {
+async function touchServer() {
   await turdus.request({
     method: 'GET',
     uri: '/cat-books',
   });
 }
 
-touchServer();
-touchServer();
-touchServer();
+await touchServer();
+await touchServer();
+await touchServer();
 // ...
 
 // will touch known resources by their weight.
