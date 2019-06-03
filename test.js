@@ -4,6 +4,11 @@ const nock = require('nock');
 const bluebird = require('bluebird');
 
 describe('test turdus', () => {
+
+  beforeEach(async() => {
+    nock.cleanAll();
+  });
+
   it('should initialize raw turdus successfully', () => {
     const endpoints = ['127.0.0.1', '127.0.0.2', '127.0.0.3'];
     const turdus = Turdus(endpoints);
@@ -195,4 +200,62 @@ describe('test turdus', () => {
 
     assert.equal(requestHosts.filter((host) => host !== endpoints[1].server).length, 0);
   });
+
+  it('test fault tolerance success', async() => {
+    const path = '/cat-birds';
+    const message = 'though error';
+
+    const endpoints = [
+      { server: '127.0.0.1', weight: 0 },
+      { server: '127.0.0.2', weight: 0 },
+    ];
+    const turdus = Turdus(endpoints);
+    turdus.fakePositiveRes({
+      [path]: message,
+    });
+    const result = await turdus.request({
+      uri: path,
+      method: 'POST',
+      body: { yy: 6 },
+      json: true,
+    });
+
+    assert.equal(result.statusCode, 200);
+    assert.equal(result.body, message);
+  });
+
+  it('test fault tolerance fail because path not match', async() => {
+    const path = '/cat-birds';
+    const message = 'though error';
+
+    const endpoints = [
+      { server: '127.0.0.1', weight: 0 },
+      { server: '127.0.0.2', weight: 0 },
+    ];
+
+    const realError = 'hello error';
+
+    endpoints.forEach((endpoint) => {
+      nock('http://' + endpoint.server)
+      .persist()
+      .post('/cat-cows')
+      .reply(400, realError);
+    });
+
+    const turdus = Turdus(endpoints);
+    turdus.fakePositiveRes({
+      [path]: message,
+    });
+    try {
+      await turdus.request({
+        uri: '/cat-cows',
+        method: 'POST',
+        body: { yy: 6 },
+        json: true,
+      });
+    } catch (err) {
+      assert.equal(err.message, `Error occured during request: ${realError}`);
+    }
+  });
+
 });

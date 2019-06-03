@@ -45,9 +45,9 @@ async function touchServer() {
   });
 }
 
-await touchServer();
-await touchServer();
-await touchServer();
+touchServer();
+touchServer();
+touchServer();
 // ...
 
 // will touch known resources one by one.
@@ -79,9 +79,9 @@ async function touchServer() {
   });
 }
 
-await touchServer();
-await touchServer();
-await touchServer();
+touchServer();
+touchServer();
+touchServer();
 // ...
 
 // will touch known resources by their weight.
@@ -106,6 +106,30 @@ await touchServer();
 // curl http://127.0.0.2/cat-books
 // curl http://127.0.0.3/cat-books
 // ...
+
+```
+
+3. fault tolerance and nomalize error response.
+
+```
+const turdus = Turdus([ '127.0.0.1', '127.0.0.2' ]);
+turdus.fakePositiveRes({
+  '/cat-birds': 'though some error appeared',
+  '/cat-books': [ 'The Fountainhead', 'Poor Charlie's Almanack:The Wit and Wisdom of Charles T. Munger', 'The Little Prince' ],
+});
+
+turdus.request({
+  uri: '/cat-birds',
+  method: 'POST',
+  body: { yy: 6 },
+  json: true,
+})
+.then((result) => {
+  // though enpoints is not touchable
+  // we can get positive response due to preset method.
+  // result.statusCode: 200
+  // result.body: 'though some error appeared',
+});
 
 ```
 

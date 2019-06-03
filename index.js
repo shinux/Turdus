@@ -15,6 +15,15 @@ class RawTurdus {
   constructor(endpoints) {
     this._endpoints = endpoints || [];
     this._index = 0;
+    this._pathToResMapping = {};
+  }
+
+  /**
+   *
+   *
+   */
+  fakePositiveRes(_responseMapping) {
+    this._pathToResMapping = _responseMapping;
   }
 
   /**
@@ -41,13 +50,20 @@ class RawTurdus {
    * @return {Promise} resolves to request response object.
    */
   async request(options) {
+    const originPath = options.uri;
     try {
       const server = this.pickEndpoint();
-      // TODO: more parse on protocol and domain
       options.uri = 'http://' + server + options.uri;
-      return await realRequest(options);
+      const result = await realRequest(options);
+      if (result.statusCode > 200) {
+        throw new Error(result.body);
+      }
+      return result;
     } catch (err) {
-      throw new Error('Error occured during request: ', err.message);
+      if (this._pathToResMapping[originPath]) {
+        return { statusCode: 200, body: this._pathToResMapping[originPath] };
+      }
+      throw new Error(`Error occured during request: ${err.message || err.body}`);
     }
   }
 }
