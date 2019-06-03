@@ -111,7 +111,8 @@ touchServer();
 
 3. fault tolerance and nomalize error response.
 
-```
+
+```javascript
 const turdus = Turdus([ '127.0.0.1', '127.0.0.2' ]);
 turdus.fakePositiveRes({
   '/cat-birds': 'though some error appeared',
