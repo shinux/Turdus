@@ -27,9 +27,7 @@ among peers.
 see also: https://github.com/phusion/nginx/commit/27e94984486058d73157038f7950a0a36ecc6e35
 
 
-**[Deprecated]**
-
-For weighted round robin algorithm (gcd version):
+**[Deprecated]** For weighted round robin algorithm (gcd version):
 
 1. calculate [GCD](https://en.wikipedia.org/wiki/Greatest_common_divisor) of all endpoints' weight
 2. choose the max weighted endpoint then minus GCD
