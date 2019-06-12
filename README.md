@@ -24,7 +24,7 @@ of each eligible peer by its weight, select peer with greatest current_weight
 and reduce its current_weight by total number of weight points distributed
 among peers.
 
-see also: https://github.com/phusion/nginx/commit/27e94984486058d73157038f7950a0a36ecc6e35
+see also: [nginx implementation](https://github.com/phusion/nginx/commit/27e94984486058d73157038f7950a0a36ecc6e35)
 
 
 **[Deprecated]** For weighted round robin algorithm (gcd version):
