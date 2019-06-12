@@ -10,10 +10,10 @@ describe('test turdus', () => {
   });
 
   it('should initialize raw turdus successfully', () => {
-    const endpoints = ['127.0.0.1', '127.0.0.2', '127.0.0.3'];
+    const endpoints = { bird: ['127.0.0.1', '127.0.0.2', '127.0.0.3'] };
     const turdus = Turdus(endpoints);
-    endpoints.forEach((endpoint, index) => {
-      assert.equal(endpoint, turdus._endpoints[index]);
+    endpoints.bird.forEach((endpoint, index) => {
+      assert.equal(endpoint, turdus._endpoints.bird[index]);
     });
   });
 
@@ -21,13 +21,13 @@ describe('test turdus', () => {
 
     const path = '/cat-cats';
 
-    const endpoints = [
+    const endpoints = { pigeon: [
       { server: '127.0.0.1', weight: 5 },
       { server: '127.0.0.2', weight: 10 },
       { server: '127.0.0.3', weight: 4 },
-    ];
+    ] };
 
-    endpoints.forEach((endpoint) => {
+    endpoints.pigeon.forEach((endpoint) => {
       nock('http://' + endpoint.server)
       .persist()
       .get(path)
@@ -35,18 +35,18 @@ describe('test turdus', () => {
     });
 
     const turdus = Turdus(endpoints);
-    endpoints.forEach((endpoint, index) => {
-      assert.equal(endpoint, turdus._endpoints[index]);
+    endpoints.pigeon.forEach((endpoint, index) => {
+      assert.equal(endpoint.server, turdus._endpoints.pigeon[index].server);
     });
-    assert.equal(turdus._gcd, 1);
+    assert.equal(turdus._appStatus.pigeon.weightSum, 19);
 
     const requestHosts = [];
     await bluebird.each(new Array(19), async() => {
-      const result = await turdus.request({ uri: path, method: 'GET' });
+      const result = await turdus.request('pigeon', { uri: path, method: 'GET' });
       requestHosts.push(result.request.host);
     });
 
-    endpoints.forEach((endpoint) => {
+    endpoints.pigeon.forEach((endpoint) => {
       assert.equal(requestHosts.filter((host) => host === endpoint.server).length, endpoint.weight);
     });
   });
@@ -55,13 +55,13 @@ describe('test turdus', () => {
 
     const path = '/cat-birds';
 
-    const endpoints = [
+    const endpoints = { pigeon: [
       { server: '127.0.0.1', weight: 0 },
       { server: '127.0.0.2', weight: 0 },
       { server: '127.0.0.3', weight: 0 },
-    ];
+    ] };
 
-    endpoints.forEach((endpoint) => {
+    endpoints.pigeon.forEach((endpoint) => {
       nock('http://' + endpoint.server)
       .persist()
       .post(path)
@@ -69,14 +69,17 @@ describe('test turdus', () => {
     });
 
     const turdus = Turdus(endpoints);
-    endpoints.forEach((endpoint, index) => {
-      assert.equal(endpoint.server, turdus._endpoints[index]);
+
+    endpoints.pigeon.forEach((endpoint, index) => {
+      assert.equal(endpoint.server, turdus._endpoints.pigeon[index]);
     });
-    assert.ok(!turdus._gcd);
+
+    assert.ok(!turdus._appStatus.pigeon.weightSum);
+    assert.ok(turdus._appStatus.pigeon.isRaw);
 
     const requestHosts = [];
     await bluebird.each(new Array(6), async() => {
-      const result = await turdus.request({
+      const result = await turdus.request('pigeon', {
         uri: path,
         method: 'POST',
         body: { yy: 6 },
@@ -85,7 +88,8 @@ describe('test turdus', () => {
       requestHosts.push(result.request.host);
     });
 
-    endpoints.forEach((endpoint) => {
+    // match twice for each server due to 6 times request.
+    endpoints.pigeon.forEach((endpoint) => {
       assert.equal(requestHosts.filter((host) => host === endpoint.server).length, 2);
     });
   });
@@ -94,9 +98,11 @@ describe('test turdus', () => {
   it('should raw turdus successfully initialized and meet load balancing', async() => {
     const path = '/cat-dogs';
 
-    const endpoints = ['127.0.0.1', '127.0.0.2', '127.0.0.3', '127.0.0.4'];
+    const appName = 'whatever';
 
-    endpoints.forEach((endpoint) => {
+    const endpoints = { [appName]: ['127.0.0.1', '127.0.0.2', '127.0.0.3', '127.0.0.4'] };
+
+    endpoints[appName].forEach((endpoint) => {
       nock('http://' + endpoint)
       .persist()
       .post(path)
@@ -104,14 +110,14 @@ describe('test turdus', () => {
     });
 
     const turdus = Turdus(endpoints);
-    endpoints.forEach((endpoint, index) => {
-      assert.equal(endpoint, turdus._endpoints[index]);
+    endpoints[appName].forEach((endpoint, index) => {
+      assert.equal(endpoint, turdus._endpoints[appName][index]);
     });
-    assert.equal(!turdus._gcd, true);
+    assert.equal(!turdus._appStatus[appName].weightSum, true);
 
     const requestHosts = [];
     await bluebird.each(new Array(8), async() => {
-      const result = await turdus.request({
+      const result = await turdus.request(appName, {
         uri: path,
         method: 'POST',
         body: { xx: 5 },
@@ -120,7 +126,7 @@ describe('test turdus', () => {
       requestHosts.push(result.request.host);
     });
 
-    endpoints.forEach((endpoint) => {
+    endpoints[appName].forEach((endpoint) => {
       assert.equal(requestHosts.filter((host) => host === endpoint).length, 2);
     });
   });
@@ -128,14 +134,16 @@ describe('test turdus', () => {
   it('should all weighted 0 turdus initialized successfully and act as raw does', async() => {
     const path = '/cat-birds';
 
-    const endpoints = [
+    const appName = 'raw';
+
+    const endpoints = { [appName]: [
       { server: '127.0.0.1' },
       { server: '127.0.0.2' },
       { server: '127.0.0.3' },
       { server: '127.0.0.4' },
-    ];
+    ] };
 
-    endpoints.forEach((endpoint) => {
+    endpoints[appName].forEach((endpoint) => {
       nock('http://' + endpoint.server)
       .persist()
       .post(path)
@@ -143,14 +151,14 @@ describe('test turdus', () => {
     });
 
     const turdus = Turdus(endpoints);
-    endpoints.forEach((endpoint, index) => {
-      assert.equal(endpoint.server, turdus._endpoints[index]);
+    endpoints[appName].forEach((endpoint, index) => {
+      assert.equal(endpoint.server, turdus._endpoints[appName][index]);
     });
-    assert.equal(!turdus._gcd, true);
+    assert.equal(!turdus._appStatus[appName].weightSum, true);
 
     const requestHosts = [];
     await bluebird.each(new Array(8), async() => {
-      const result = await turdus.request({
+      const result = await turdus.request(appName, {
         uri: path,
         method: 'POST',
         body: { xx: 5 },
@@ -159,23 +167,25 @@ describe('test turdus', () => {
       requestHosts.push(result.request.host);
     });
 
-    endpoints.forEach((endpoint) => {
+    endpoints[appName].forEach((endpoint) => {
       assert.equal(requestHosts.filter((host) => host === endpoint.server).length, 2);
     });
   });
 
 
-  it('should only one server be used due to only one positive weight', async() => {
+  it('should use only one server due to only one positive weight', async() => {
 
     const path = '/cat-birds';
 
-    const endpoints = [
+    const appName = 'sparrow';
+
+    const endpoints = { [appName]: [
       { server: '127.0.0.1', weight: 0 },
       { server: '127.0.0.2', weight: 5 },
       { server: '127.0.0.3', weight: 0 },
-    ];
+    ] };
 
-    endpoints.forEach((endpoint) => {
+    endpoints[appName].forEach((endpoint) => {
       nock('http://' + endpoint.server)
       .persist()
       .post(path)
@@ -183,13 +193,13 @@ describe('test turdus', () => {
     });
 
     const turdus = Turdus(endpoints);
-    endpoints.forEach((endpoint, index) => {
-      assert.equal(endpoint.server, turdus._endpoints[index].server);
+    endpoints[appName].forEach((endpoint, index) => {
+      assert.equal(endpoint.server, turdus._endpoints[appName][index].server);
     });
 
     const requestHosts = [];
     await bluebird.each(new Array(6), async() => {
-      const result = await turdus.request({
+      const result = await turdus.request(appName, {
         uri: path,
         method: 'POST',
         body: { yy: 6 },
@@ -198,22 +208,23 @@ describe('test turdus', () => {
       requestHosts.push(result.request.host);
     });
 
-    assert.equal(requestHosts.filter((host) => host !== endpoints[1].server).length, 0);
+    assert.equal(requestHosts.filter((host) => host !== endpoints[appName][1].server).length, 0);
   });
 
   it('test fault tolerance success', async() => {
     const path = '/cat-birds';
     const message = 'though error';
 
-    const endpoints = [
+    const appName = 'wrongBird';
+    const endpoints = { [appName]: [
       { server: '127.0.0.1', weight: 0 },
       { server: '127.0.0.2', weight: 0 },
-    ];
+    ] };
     const turdus = Turdus(endpoints);
-    turdus.fakePositiveRes({
+    turdus.fakePositiveRes(appName, {
       [path]: message,
     });
-    const result = await turdus.request({
+    const result = await turdus.request(appName, {
       uri: path,
       method: 'POST',
       body: { yy: 6 },
@@ -228,14 +239,16 @@ describe('test turdus', () => {
     const path = '/cat-birds';
     const message = 'though error';
 
-    const endpoints = [
+    const appName = 'failBird';
+
+    const endpoints = { [appName]: [
       { server: '127.0.0.1', weight: 0 },
       { server: '127.0.0.2', weight: 0 },
-    ];
+    ] };
 
     const realError = 'hello error';
 
-    endpoints.forEach((endpoint) => {
+    endpoints[appName].forEach((endpoint) => {
       nock('http://' + endpoint.server)
       .persist()
       .post('/cat-cows')
@@ -243,11 +256,11 @@ describe('test turdus', () => {
     });
 
     const turdus = Turdus(endpoints);
-    turdus.fakePositiveRes({
+    turdus.fakePositiveRes(appName, {
       [path]: message,
     });
     try {
-      await turdus.request({
+      await turdus.request(appName, {
         uri: '/cat-cows',
         method: 'POST',
         body: { yy: 6 },

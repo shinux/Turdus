@@ -2,9 +2,13 @@ const _ = require('lodash');
 const bluebird = require('bluebird');
 const realRequest = bluebird.promisify(require('request'));
 
+// TODO: method 传进来所有的，更新传入的 endpoints 重新轮询
+// TODO: nginx smooth round-robin
+// TODO: 传入的 endpoints 应该支持不同的 app .
+// TODO: fake positive Res 可以通过传入 endpoints 时一起传过来
 
 /**
- * RawTurdus is base class which accpet String[] type endpoints
+ * RawTurdus is base class which accept String[] type endpoints
  * and request in simple round robin
  *
  * Public interface:
@@ -13,17 +17,22 @@ const realRequest = bluebird.promisify(require('request'));
  */
 class RawTurdus {
   constructor(endpoints) {
-    this._endpoints = endpoints || [];
-    this._index = 0;
+    this._endpoints = endpoints ? _.cloneDeep(endpoints) : {};
+    this._appNames = Object.keys(endpoints);
+    this._indices = this._appNames.reduce((obj, appName) => { obj[appName] = 0; return obj; }, {});
     this._pathToResMapping = {};
   }
 
   /**
+   * fault tolerance.
    *
+   * preset response to avoid error.
+   *
+   * @param {Object} _responseMapping - { path: responseBody }: { [key:string]: string | object }
    *
    */
-  fakePositiveRes(_responseMapping) {
-    this._pathToResMapping = _responseMapping;
+  fakePositiveRes(appName, _responseMapping) {
+    this._pathToResMapping[appName] = _responseMapping;
   }
 
   /**
@@ -33,26 +42,33 @@ class RawTurdus {
    *
    * @return {String} currentEndpoint - an ip/domain
    */
-  pickEndpoint() {
-    if (this._index >= this._endpoints.length) {
-      this._index = 0;
+  pickEndpoint(appName) {
+    if (!_.has(this._indices, appName) || !this._endpoints[appName]) {
+      throw new Error('invalid endpoint index or no endpoints for current app name.');
     }
-    const currentEndpoint = this._endpoints[this._index];
-    this._index++;
+    if (this._indices[appName] >= this._endpoints[appName].length) {
+      this._indices[appName] = 0;
+    }
+    const currentEndpoint = this._endpoints[appName][this._indices[appName]];
+    this._indices[appName]++;
     return currentEndpoint;
   }
 
   /**
    * execute http request with pointed domain from prepared endpoint list
    *
+   * @param {String} appName - app name.
    * @param {Object} options - request options: method, uri, body, json...
    *                           [https://github.com/request/request]
    * @return {Promise} resolves to request response object.
    */
-  async request(options) {
+  async request(appName, options) {
+    if (!appName || !this._appNames.includes(appName)) {
+      throw new Error('No such app, or specific app has not been initialized.');
+    }
     const originPath = options.uri;
     try {
-      const server = this.pickEndpoint();
+      const server = this.pickEndpoint(appName);
       options.uri = 'http://' + server + options.uri;
       const result = await realRequest(options);
       if (result.statusCode > 200) {
@@ -60,8 +76,8 @@ class RawTurdus {
       }
       return result;
     } catch (err) {
-      if (this._pathToResMapping[originPath]) {
-        return { statusCode: 200, body: this._pathToResMapping[originPath] };
+      if (this._pathToResMapping[appName] && this._pathToResMapping[appName][originPath]) {
+        return { statusCode: 200, body: this._pathToResMapping[appName][originPath] };
       }
       throw new Error(`Error occured during request: ${err.message || err.body}`);
     }
@@ -73,7 +89,9 @@ const gcd = (a, b) => !b ? a : gcd(b, a % b);
 
 
 /**
- * WeightedTurdus is subclass of RawTurdus
+ * @Deprecated
+ *
+ * Simple WeightedTurdus is subclass of RawTurdus
  * which accpet { server: string, weight: number }[] type endpoints
  * and request in weighted round robin
  *
@@ -81,7 +99,7 @@ const gcd = (a, b) => !b ? a : gcd(b, a % b);
  *
  * fn: request()      - do real http request in specific domain by module: request.
  */
-class WeightedTurdus extends RawTurdus {
+class SimpleWeightedTurdus extends RawTurdus {
   constructor(endpoints) {
     super(endpoints);
     if (this._endpoints.lenght < 0
@@ -90,7 +108,7 @@ class WeightedTurdus extends RawTurdus {
       this.raw = true;
     } else {
       this.restoreCurrentWeight();
-      this._gcd = WeightedTurdus.calculateGCD(this._endpoints.map((server) => server.weight));
+      this._gcd = SimpleWeightedTurdus.calculateGCD(this._endpoints.map((server) => server.weight));
     }
   }
 
@@ -148,17 +166,86 @@ class WeightedTurdus extends RawTurdus {
   }
 }
 
-
-
-module.exports = function Turdus(endpoints) {
-  const wrongEndpointsError = new Error('endpoints structure should be string[] or {server: string, weight: number}[]');
-  if (!_.isArray(endpoints) || !endpoints.length) {
-    throw wrongEndpointsError;
+/**
+ * nginx-like smooth weighted round-robin balancing.
+ *
+ * Algorithm is as follows: on each peer selection we increase current_weight
+ * of each eligible peer by its weight, select peer with greatest current_weight
+ * and reduce its current_weight by total number of weight points distributed
+ * among peers.
+ *
+ * see also: https://github.com/phusion/nginx/commit/27e94984486058d73157038f7950a0a36ecc6e35
+ *
+ */
+class SmoothWeightedTurdus extends RawTurdus {
+  constructor(endpoints) {
+    super(endpoints);
+    this._appStatus = {};
+    Object.keys(this._endpoints).forEach((appName) => {
+      if (!this._appStatus[appName]) {
+        this._appStatus[appName] = {};
+      }
+      if (this._endpoints[appName].length < 0) {
+        throw new Error(`${appName} has empty server list which is invalid`);
+      }
+      if (this._endpoints[appName].every((endpoint) => !endpoint.weight || endpoint.weight === 0)) {
+        this._endpoints[appName] = this._endpoints[appName].map((endpoint) => typeof endpoint === 'object' ? endpoint.server : endpoint);
+        this._appStatus[appName].isRaw = true;
+      } else {
+        this.restoreCurrentWeight(appName);
+        this._appStatus[appName].weightSum = this._endpoints[appName].map((server) => server.weight).reduce((a, b) => a + b, 0);
+      }
+    });
   }
-  if (typeof endpoints[0] === 'string') {
-    return new RawTurdus(endpoints);
-  } else if (typeof endpoints[0] === 'object') {
-    return new WeightedTurdus(endpoints);
+
+  /**
+   * set currentWeight.
+   */
+  restoreCurrentWeight(appName) {
+    this._endpoints[appName] = this._endpoints[appName].map((server) => {
+      server.currentWeight = 0;
+      return server;
+    });
   }
-  throw wrongEndpointsError;
+
+  /**
+   * @Private
+   *
+   * pick server ip/domain from _endpiontList then update index.
+   *
+   * @return {String|undefined}
+   */
+  pickEndpoint(appName) {
+    if (this._appStatus[appName].isRaw) {
+      return super.pickEndpoint(appName);
+    }
+    let currentEndpoint;
+    for (let i = 0; i < this._endpoints[appName].length; i++) {
+      this._endpoints[appName][i].currentWeight += this._endpoints[appName][i].weight;
+      if (!currentEndpoint || currentEndpoint.currentWeight < this._endpoints[appName][i].currentWeight) {
+        currentEndpoint = this._endpoints[appName][i];
+      }
+    }
+    currentEndpoint.currentWeight -= this._appStatus[appName].weightSum;
+    return currentEndpoint.server;
+  }
+
+}
+
+/**
+ * [ x, y, z ]
+ * [ { server: x, weight: 5 }, { server: y, weight: 6 }, { server: z, weight: 2 } ]
+ *
+ * accepted object. { app1: [], app2: [] }
+ *
+ *
+ */
+module.exports = function Turdus(AppToEndpoints) {
+  const wrongEndpointsError = new Error('endpoints structure should be { [key:string]: string[]} or { [key:string]: {server: string, weight: number}[] }');
+  Object.keys(AppToEndpoints).forEach((app) => {
+    if (!_.isArray(AppToEndpoints[app]) || !AppToEndpoints[app].length) {
+      throw wrongEndpointsError;
+    }
+  });
+  return new SmoothWeightedTurdus(AppToEndpoints);
 };

@@ -13,11 +13,21 @@ It provides following features:
 * Client side Load balancing
 * Fault tolerance
 * Normalized Response on request failure.
+* Mutiple apps supported.
 
 ## Principle
 
 For simple Round-robin, it is basically array loop.
 
+For weighted round robin algorithm, on each peer selection we increase current_weight
+of each eligible peer by its weight, select peer with greatest current_weight
+and reduce its current_weight by total number of weight points distributed
+among peers.
+
+see also: https://github.com/phusion/nginx/commit/27e94984486058d73157038f7950a0a36ecc6e35
+
+
+**[Deprecated]**:
 For weighted round robin algorithm:
 
 1. calculate [GCD](https://en.wikipedia.org/wiki/Greatest_common_divisor) of all endpoints' weight
@@ -42,10 +52,10 @@ or subscribe event by eureka client and fetchRegistry from [Eureka](https://gith
 
 ```javascript
 const Turdus = require('turdus');
-const trudus = Turdus(['127.0.0.1', '127.0.0.2', '127.0.0.3']);
+const trudus = Turdus({ bird: ['127.0.0.1', '127.0.0.2', '127.0.0.3'] });
 
 async function touchServer() {
-  await turdus.request({
+  await turdus.request('bird', {
     method: 'GET',
     uri: '/cat-books',
   });
@@ -72,14 +82,14 @@ touchServer();
 
 ```javascript
 const Turdus = require('turdus');
-const turdus = Turdus([
+const turdus = Turdus({ bird: [
   { server: '127.0.0.1', weight: 5 },
   { server: '127.0.0.2', weight: 10 },
   { server: '127.0.0.3', weight: 4 },
-]);
+]});
 
 async function touchServer() {
-  await turdus.request({
+  await turdus.request('bird', {
     method: 'GET',
     uri: '/cat-books',
   });
@@ -93,24 +103,24 @@ touchServer();
 // will touch known resources by their weight.
 //
 // curl http://127.0.0.2/cat-books
-// curl http://127.0.0.2/cat-books
-// curl http://127.0.0.2/cat-books
-// curl http://127.0.0.2/cat-books
-// curl http://127.0.0.2/cat-books
 // curl http://127.0.0.1/cat-books
+// curl http://127.0.0.3/cat-books
+// curl http://127.0.0.2/cat-books
 // curl http://127.0.0.2/cat-books
 // curl http://127.0.0.1/cat-books
 // curl http://127.0.0.2/cat-books
 // curl http://127.0.0.3/cat-books
+// curl http://127.0.0.2/cat-books
 // curl http://127.0.0.1/cat-books
+// curl http://127.0.0.2/cat-books
+// curl http://127.0.0.3/cat-books
+// curl http://127.0.0.2/cat-books
+// curl http://127.0.0.1/cat-books
+// curl http://127.0.0.2/cat-books
 // curl http://127.0.0.2/cat-books
 // curl http://127.0.0.3/cat-books
 // curl http://127.0.0.1/cat-books
 // curl http://127.0.0.2/cat-books
-// curl http://127.0.0.3/cat-books
-// curl http://127.0.0.1/cat-books
-// curl http://127.0.0.2/cat-books
-// curl http://127.0.0.3/cat-books
 // ...
 
 ```
@@ -119,13 +129,13 @@ touchServer();
 
 
 ```javascript
-const turdus = Turdus([ '127.0.0.1', '127.0.0.2' ]);
-turdus.fakePositiveRes({
+const turdus = Turdus({ bird: [ '127.0.0.1', '127.0.0.2' ] });
+turdus.fakePositiveRes('bird', {
   '/cat-birds': 'though some error appeared',
   '/cat-books': [ 'The Fountainhead', 'Poor Charlie's Almanack:The Wit and Wisdom of Charles T. Munger', 'The Little Prince' ],
 });
 
-turdus.request({
+turdus.request('bird', {
   uri: '/cat-birds',
   method: 'POST',
   body: { yy: 6 },
