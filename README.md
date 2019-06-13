@@ -149,6 +149,35 @@ turdus.request('bird', {
 
 ```
 
+4. update exist applications' endpoints or add new applications.
+
+```
+const endpoints = {
+  kitten: [
+    { server: '127.0.0.1', weight: 0 },
+    { server: '127.0.0.2', weight: 0 },
+  ],
+  doggy: [
+    { server: '192.168.0.1', weight: 0 },
+    { server: '192.168.0.2', weight: 0 },
+  ],
+};
+const turdus = Turdus(endpoints);
+turdus.upsertEndpoints({
+  doggy: [
+    { server: '192.168.0.1', weight: 3 },
+    { server: '192.168.0.2', weight: 3 },
+    { server: '192.168.0.3', weight: 1 },
+    { server: '192.168.0.4', weight: 1 },
+  ],
+});
+
+// the doggy application's endpoints will be changed.
+// also it's balance type got changed from raw to weighted.
+```
+
+NOTE: this function will reset related applications' current polling order to original status.
+
 ## License
 
 MIT

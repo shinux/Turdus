@@ -2,10 +2,15 @@ const _ = require('lodash');
 const bluebird = require('bluebird');
 const realRequest = bluebird.promisify(require('request'));
 
-// TODO: method 传进来所有的，更新传入的 endpoints 重新轮询
-// TODO: nginx smooth round-robin
-// TODO: 传入的 endpoints 应该支持不同的 app .
-// TODO: fake positive Res 可以通过传入 endpoints 时一起传过来
+
+const simpleEndpointsChecker = (endpoints) => {
+  const wrongEndpointsError = new Error('endpoints structure should be { [key:string]: string[]} or { [key:string]: {server: string, weight: number}[] }');
+  Object.keys(endpoints).forEach((app) => {
+    if (!_.isArray(endpoints[app]) || !endpoints[app].length) {
+      throw wrongEndpointsError;
+    }
+  });
+};
 
 /**
  * RawTurdus is base class which accept String[] type endpoints
@@ -13,7 +18,8 @@ const realRequest = bluebird.promisify(require('request'));
  *
  * Public interface:
  *
- * fn: request()      - do real http request in specific domain by module: request.
+ * fn: request()         - do real http request in specific domain by module: request.
+ * fn: fakePositiveRes() - simulate positive response by passing response mapping.
  */
 class RawTurdus {
   constructor(endpoints) {
@@ -21,6 +27,17 @@ class RawTurdus {
     this._appNames = Object.keys(endpoints);
     this._indices = this._appNames.reduce((obj, appName) => { obj[appName] = 0; return obj; }, {});
     this._pathToResMapping = {};
+  }
+
+  /**
+   * @Private
+   *
+   * set specific app's index to zero.
+   *
+   * @param {String} appName - app name.
+   */
+  _resetIndex(appName) {
+    this._indices[appName] = 0;
   }
 
   /**
@@ -47,7 +64,7 @@ class RawTurdus {
       throw new Error('invalid endpoint index or no endpoints for current app name.');
     }
     if (this._indices[appName] >= this._endpoints[appName].length) {
-      this._indices[appName] = 0;
+      this._resetIndex(appName);
     }
     const currentEndpoint = this._endpoints[appName][this._indices[appName]];
     this._indices[appName]++;
@@ -176,29 +193,46 @@ class SimpleWeightedTurdus extends RawTurdus {
  *
  * see also: https://github.com/phusion/nginx/commit/27e94984486058d73157038f7950a0a36ecc6e35
  *
+ * fn:  fullyUpdateEndpoints() - fully update endpoints.
+ *
  */
 class SmoothWeightedTurdus extends RawTurdus {
   constructor(endpoints) {
     super(endpoints);
     this._appStatus = {};
-    Object.keys(this._endpoints).forEach((appName) => {
+    this.upsertEndpoints(this._endpoints);
+  }
+
+  /**
+   * update exist endpoints
+   * merely cover the old endpoints and add new but wont's do remove operations.
+   *
+   * @param {Object} AppToEndpoints - { [key:string]: string[]} or { [key:string]: {server: string, weight: number}[] }
+   */
+  upsertEndpoints(_appToEndpoints) {
+    simpleEndpointsChecker(_appToEndpoints);
+    const appToEndpoints = _.cloneDeep(_appToEndpoints);
+    Object.keys(appToEndpoints).forEach((appName) => {
       if (!this._appStatus[appName]) {
         this._appStatus[appName] = {};
       }
-      if (this._endpoints[appName].length < 0) {
-        throw new Error(`${appName} has empty server list which is invalid`);
-      }
-      if (this._endpoints[appName].every((endpoint) => !endpoint.weight || endpoint.weight === 0)) {
-        this._endpoints[appName] = this._endpoints[appName].map((endpoint) => typeof endpoint === 'object' ? endpoint.server : endpoint);
+      // in case new application' endpoints created or updated.
+      // here we do a re-assign.
+      this._endpoints[appName] = appToEndpoints[appName];
+      if (appToEndpoints[appName].every((endpoint) => !endpoint.weight || endpoint.weight === 0)) {
+        this._endpoints[appName] = appToEndpoints[appName].map((endpoint) => typeof endpoint === 'object' ? endpoint.server : endpoint);
         this._appStatus[appName].isRaw = true;
+        this._resetIndex(appName);
       } else {
         this.restoreCurrentWeight(appName);
-        this._appStatus[appName].weightSum = this._endpoints[appName].map((server) => server.weight).reduce((a, b) => a + b, 0);
+        this._appStatus[appName].weightSum = appToEndpoints[appName].map((server) => server.weight).reduce((a, b) => a + b, 0);
       }
     });
   }
 
   /**
+   * @Private
+   *
    * set currentWeight.
    */
   restoreCurrentWeight(appName) {
@@ -238,14 +272,8 @@ class SmoothWeightedTurdus extends RawTurdus {
  *
  * accepted object. { app1: [], app2: [] }
  *
- *
  */
 module.exports = function Turdus(AppToEndpoints) {
-  const wrongEndpointsError = new Error('endpoints structure should be { [key:string]: string[]} or { [key:string]: {server: string, weight: number}[] }');
-  Object.keys(AppToEndpoints).forEach((app) => {
-    if (!_.isArray(AppToEndpoints[app]) || !AppToEndpoints[app].length) {
-      throw wrongEndpointsError;
-    }
-  });
+  simpleEndpointsChecker(AppToEndpoints);
   return new SmoothWeightedTurdus(AppToEndpoints);
 };

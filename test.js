@@ -271,4 +271,31 @@ describe('test turdus', () => {
     }
   });
 
+  it('test fullyUpdateEndpoints', async() => {
+    const endpoints = {
+      kitten: [
+        { server: '127.0.0.1', weight: 0 },
+        { server: '127.0.0.2', weight: 0 },
+      ],
+      doggy: [
+        { server: '192.168.0.1', weight: 0 },
+        { server: '192.168.0.2', weight: 0 },
+      ],
+    };
+    const turdus = Turdus(endpoints);
+    turdus.upsertEndpoints({
+      doggy: [
+        { server: '192.168.0.1', weight: 3 },
+        { server: '192.168.0.2', weight: 3 },
+        { server: '192.168.0.3', weight: 1 },
+        { server: '192.168.0.4', weight: 1 },
+      ],
+    });
+
+    assert.equal(turdus._endpoints.doggy.length, 4);
+    assert.equal(turdus._appStatus.doggy.weightSum, 8);
+    assert.equal(turdus._endpoints.kitten.length, 2);
+    assert.equal(turdus._appStatus.kitten.isRaw, true);
+    assert.equal(turdus._indices.kitten, 0);
+  });
 });
