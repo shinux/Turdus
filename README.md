@@ -51,7 +51,11 @@ or subscribe event by eureka client and fetchRegistry from [Eureka](https://gith
 
 ```javascript
 const Turdus = require('turdus');
-const trudus = Turdus({ bird: ['127.0.0.1', '127.0.0.2', '127.0.0.3'] });
+// initialize multiple app
+const trudus = Turdus({ 
+  bird: ['127.0.0.1', '127.0.0.2', '127.0.0.3'],
+  kitten: ['192.168.0.1', '192.168.0.2', '192.168.0.3'],
+});
 
 async function touchServer() {
   await turdus.request('bird', {
