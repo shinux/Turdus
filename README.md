@@ -24,7 +24,7 @@ of each eligible peer by its weight, select peer with greatest current_weight
 and reduce its current_weight by total number of weight points distributed
 among peers.
 
-see also: https://github.com/phusion/nginx/commit/27e94984486058d73157038f7950a0a36ecc6e35
+see also: [nginx implementation](https://github.com/phusion/nginx/commit/27e94984486058d73157038f7950a0a36ecc6e35)
 
 
 **[Deprecated]** For weighted round robin algorithm (gcd version):
@@ -51,7 +51,11 @@ or subscribe event by eureka client and fetchRegistry from [Eureka](https://gith
 
 ```javascript
 const Turdus = require('turdus');
-const trudus = Turdus({ bird: ['127.0.0.1', '127.0.0.2', '127.0.0.3'] });
+// initialize multiple app
+const trudus = Turdus({ 
+  bird: ['127.0.0.1', '127.0.0.2', '127.0.0.3'],
+  kitten: ['192.168.0.1', '192.168.0.2', '192.168.0.3'],
+});
 
 async function touchServer() {
   await turdus.request('bird', {
