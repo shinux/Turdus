@@ -88,7 +88,7 @@ class RawTurdus {
       const server = this.pickEndpoint(appName);
       options.uri = 'http://' + server + options.uri;
       const result = await realRequest(options);
-      if (result.statusCode > 200) {
+      if (result.statusCode >= 400) {
         throw new Error(result.body);
       }
       return result;
@@ -200,27 +200,42 @@ class SmoothWeightedTurdus extends RawTurdus {
   constructor(endpoints) {
     super(endpoints);
     this._appStatus = {};
-    this.upsertEndpoints(this._endpoints);
+    this.upsertEndpoints(this._endpoints, true);
   }
 
   /**
    * update exist endpoints
-   * merely cover the old endpoints and add new but wont's do remove operations.
    *
    * @param {Object} AppToEndpoints - { [key:string]: string[]} or { [key:string]: {server: string, weight: number}[] }
+   * @param {Boolean} isInitial - { }
    */
-  upsertEndpoints(_appToEndpoints) {
+  upsertEndpoints(_appToEndpoints, isInitial = false) {
     simpleEndpointsChecker(_appToEndpoints);
     const appToEndpoints = _.cloneDeep(_appToEndpoints);
     Object.keys(appToEndpoints).forEach((appName) => {
       if (!this._appStatus[appName]) {
         this._appStatus[appName] = {};
       }
-      // in case new application' endpoints created or updated.
-      // here we do a re-assign.
-      this._endpoints[appName] = appToEndpoints[appName];
+      // format arguments.
+      let _isRaw = false;
       if (appToEndpoints[appName].every((endpoint) => !endpoint.weight || endpoint.weight === 0)) {
-        this._endpoints[appName] = appToEndpoints[appName].map((endpoint) => typeof endpoint === 'object' ? endpoint.server : endpoint);
+        appToEndpoints[appName] = appToEndpoints[appName].map((endpoint) => typeof endpoint === 'object' ? endpoint.server : endpoint);
+        _isRaw = true;
+      }
+
+      // compare with Object-builtin endpoints.
+      if (!isInitial && _isRaw && _.isEqual(this._endpoints[appName], appToEndpoints[appName])) {
+        return;
+      }
+      if (!isInitial && !_isRaw && _.isEqual(
+          this._endpoints[appName].map((obj) => _.pick(obj, ['server', 'weight'])),
+          appToEndpoints[appName].map((obj) => _.pick(obj, ['server', 'weight'])))) {
+        return;
+      }
+
+      // reassign if needed and reset index or weight sum.
+      this._endpoints[appName] = appToEndpoints[appName];
+      if (_isRaw) {
         this._appStatus[appName].isRaw = true;
         this._resetIndex(appName);
       } else {

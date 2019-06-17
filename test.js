@@ -292,10 +292,19 @@ describe('test turdus', () => {
       ],
     });
 
+    turdus._indices.kitten = 1;
+
+    turdus.upsertEndpoints({
+      kitten: [
+        { server: '127.0.0.1', weight: 0 },
+        { server: '127.0.0.2', weight: 0 },
+      ],
+    });
+
     assert.equal(turdus._endpoints.doggy.length, 4);
     assert.equal(turdus._appStatus.doggy.weightSum, 8);
     assert.equal(turdus._endpoints.kitten.length, 2);
     assert.equal(turdus._appStatus.kitten.isRaw, true);
-    assert.equal(turdus._indices.kitten, 0);
+    assert.equal(turdus._indices.kitten, 1);
   });
 });
