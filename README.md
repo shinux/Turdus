@@ -155,7 +155,7 @@ turdus.request('bird', {
 
 4. update exist applications' endpoints or add new applications.
 
-```
+```javascript
 const endpoints = {
   kitten: [
     { server: '127.0.0.1', weight: 0 },
