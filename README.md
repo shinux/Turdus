@@ -180,7 +180,7 @@ turdus.upsertEndpoints({
 // also it's balance type got changed from raw to weighted.
 ```
 
-NOTE: this function will reset related applications' current polling order to original status.
+NOTE: this function may reset related applications' current polling order to original status.
 
 ## License
 
