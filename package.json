@@ -26,7 +26,7 @@
     "request": "2.88.0"
   },
   "devDependencies": {
-    "eslint": "4.14.0",
+    "eslint": "4.18.2",
     "eslint-codeframe-formatter": "1.0.2",
     "eslint-plugin-import": "2.8.0",
     "eslint-plugin-mocha-no-only": "0.0.5",
@@ -35,6 +35,6 @@
     "nock": "10.0.6"
   },
   "engines": {
-     "node": ">=8.9.0"
-   }
+    "node": ">=8.9.0"
+  }
 }
