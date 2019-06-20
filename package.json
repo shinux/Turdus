@@ -1,6 +1,6 @@
 {
   "name": "turdus",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "weighted round robin client-side HTTP load balancing",
   "main": "index.js",
   "scripts": {
