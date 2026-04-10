@@ -23,7 +23,7 @@
   "homepage": "https://github.com/shinux/Turdus#readme",
   "dependencies": {
     "bluebird": "3.5.5",
-    "lodash": "4.17.23",
+    "lodash": "4.18.1",
     "request": "2.88.0"
   },
   "devDependencies": {
